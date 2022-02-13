@@ -25,9 +25,6 @@ extern "C" {
 /** \brief Boolean false value. */
 #define CANCOMM_FALSE                  (0U)
 
-/** \brief Maximum number of bytes in a CAN message. */
-#define CANCOMM_CAN_DATA_LEN_MAX       (8U)
-
 
 /****************************************************************************************
 * Type definitions
