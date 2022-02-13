@@ -2,6 +2,25 @@
 * \file         cancomm.h
 * \brief        Header file of the library for convenient access to CAN communication.
 *
+*----------------------------------------------------------------------------------------
+*                          C O P Y R I G H T
+*----------------------------------------------------------------------------------------
+*           Copyright (c) 2022 by PragmaticLinux     All rights reserved
+*
+*----------------------------------------------------------------------------------------
+*                            L I C E N S E
+*----------------------------------------------------------------------------------------
+* This library is free software; you can redistribute it and/or modify it under the terms
+* of the GNU Lesser General Public License as published by the Free Software Foundation;
+* either version 2.1 of the License, or (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful, but WITHOUT ANY
+* WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+* PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+*
+* You have received a copy of the GNU Lesser General Public License along with library.
+* If not, see https://www.gnu.org/licenses/.
+*
 ****************************************************************************************/
 #ifndef CANCOMM_H
 #define CANCOMM_H
