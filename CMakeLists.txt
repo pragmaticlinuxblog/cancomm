@@ -1,7 +1,7 @@
 # Specify the minimum version.
 cmake_minimum_required(VERSION 3.9)
 
-# Specify the project info
+# Specify the project info.
 project(cancomm VERSION 1.0.0 DESCRIPTION "SocketCAN communication library")
 
 # For access to standard installation directory variables (CMAKE_INSTALL_xDIR).
