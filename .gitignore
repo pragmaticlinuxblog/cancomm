@@ -53,3 +53,7 @@ dkms.conf
 
 # Visual Studio Code workspace
 *.code-workspace
+*.vscode/
+
+# Local install directory
+*install/

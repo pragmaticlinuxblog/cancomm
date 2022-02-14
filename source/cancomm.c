@@ -28,7 +28,7 @@
 ****************************************************************************************/
 #include <assert.h>                         /* for assertions                          */
 #include <stddef.h>                         /* for NULL declaration                    */
-#include "cancomm.h"                        /* CAN communication header                */
+#include "cancomm.h"                        /* SocketCAN communication library         */
 
 
 /****************************************************************************************
