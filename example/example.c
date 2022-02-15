@@ -33,8 +33,11 @@
 * Include files
 ****************************************************************************************/
 #include <stdint.h>                         /* for standard integer types              */
+#include <stdbool.h>                        /* for boolean type                        */
 #include <stdio.h>                          /* for standard I/O functions.             */
 #include <stdlib.h>                         /* for standard library                    */
+#include <signal.h>                         /* Signal handling                         */
+#include <stdatomic.h>                      /* Atomic operations                       */
 #include <cancomm.h>                        /* SocketCAN communication library         */
 
 
@@ -43,6 +46,19 @@
 ****************************************************************************************/
 /** \brief Name of the SocketCAN device. Adjust to the one you want to use. */
 static const char * canDevice = "vcan0";
+
+
+/****************************************************************************************
+* Local data declarations
+****************************************************************************************/
+/** \brief Atomic boolean that is used to request a program exit. */
+static atomic_bool appExitProgram;
+
+
+/****************************************************************************************
+* Function prototypes
+****************************************************************************************/
+static void AppInterruptSignalHandler(int signum);
 
 
 /************************************************************************************//**
@@ -54,8 +70,18 @@ static const char * canDevice = "vcan0";
 ****************************************************************************************/
 int main(int argc, char const * const argv[])
 {
-  int result = EXIT_SUCCESS;
   cancomm_t * canCommCtx;
+  uint32_t    canId;
+  uint8_t     canExt;
+  uint8_t     canDlc;
+  uint8_t     canData[CANCOMM_CAN_DATA_LEN_MAX];
+  uint64_t    canTimestamp;
+
+  /* Initialize locals. */
+  atomic_init(&appExitProgram, false);
+
+  /* Register interrupt signal handler for when CTRL+C was pressed. */
+  signal(SIGINT, AppInterruptSignalHandler);
 
   /* Create a new CAN communication context. */
   if ((canCommCtx = cancomm_new()) == NULL)
@@ -63,6 +89,8 @@ int main(int argc, char const * const argv[])
     printf("[ERROR] Could not create CAN communication context.\n");
     return EXIT_FAILURE;
   }
+  printf("[INFO] Created CAN communication context.\n");
+
 
   /* Connect to the CAN device. */
   if (cancomm_connect(canCommCtx, canDevice) == CANCOMM_FALSE)
@@ -70,18 +98,48 @@ int main(int argc, char const * const argv[])
     printf("[ERROR] Could not connect to CAN device %s.\n", canDevice);
     return EXIT_FAILURE;
   }
+  printf("[INFO] Connected to CAN device %s.\n", canDevice);
 
-  /* TODO Implement example CAN communication functionality. */
+  /* Enter the program loop until an exit (CTRL+C) is requested. */
+  while (!atomic_load(&appExitProgram))
+  {
+    /* Check for the reception of a CAN message. */
+    if (cancomm_receive(canCommCtx, &canId, &canExt, &canDlc, &canData[0], 
+                        &canTimestamp) == CANCOMM_TRUE)
+    {
+      printf("[PING] Received CAN message with ID %Xh.\n", canId);
+      /* Send the same message back but with an incremented identifier. */
+      if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData) == CANCOMM_TRUE)
+      {
+        printf("[PONG] Transmitted CAN message with ID %Xh.\n", canId);
+      }
+    }
+  }
 
   /* Disconnect the CAN device. */
   cancomm_disconnect(canCommCtx);
+  printf("[INFO] Disconnected from CAN device.\n");
 
   /* Release the CAN communication context. */
   cancomm_free(canCommCtx);
+  printf("[INFO] Released CAN communication context.\n");
 
   /* Give the return code back to the caller. */
   return EXIT_SUCCESS;
 } /*** end of main ***/
+
+
+/************************************************************************************//**
+** \brief     Application callback that gets called when CTRL+C was pressed to quit the
+**            program.
+** \param     signum Signal number (not used)
+**
+****************************************************************************************/
+static void AppInterruptSignalHandler(int signum)
+{
+  /* Set request flag to exit the program when the CTRL+C key combo was pressed. */
+  atomic_store(&appExitProgram, true);
+} /*** end of AppInterruptSignalHandler ***/
 
 
 /*********************************** end of example.c **********************************/

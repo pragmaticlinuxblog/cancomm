@@ -39,15 +39,22 @@ extern "C" {
 * Macro definitions
 ****************************************************************************************/
 /** \brief Boolean true value. */
-#define CANCOMM_TRUE                   (1U)
+#define CANCOMM_TRUE                   (1)
 
 /** \brief Boolean false value. */
-#define CANCOMM_FALSE                  (0U)
+#define CANCOMM_FALSE                  (0)
+
+/** \brief Maximum number of bytes in a CAN message. */
+#define CANCOMM_CAN_DATA_LEN_MAX       (8)
 
 
 /****************************************************************************************
 * Type definitions
 ****************************************************************************************/
+/* TODO Perhaps make this a void * to hide its actual contents to the source file. 
+ * Found some related info here:
+ * https://stackoverflow.com/questions/1154709/how-can-i-hide-the-declaration-of-a-struct-in-c/1154730
+ */
 /** \brief Structure for grouping all CAN communication context related data. */
 typedef struct
 {
@@ -70,7 +77,7 @@ void        cancomm_disconnect(cancomm_t * ctx);
 uint8_t     cancomm_transmit(cancomm_t * ctx, uint32_t id, uint8_t ext, uint8_t len, 
                              uint8_t const * data);
 uint8_t     cancomm_receive(cancomm_t * ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                             uint8_t * data, uint32_t * timestamp);
+                             uint8_t * data, uint64_t * timestamp);
 
 
 #ifdef __cplusplus

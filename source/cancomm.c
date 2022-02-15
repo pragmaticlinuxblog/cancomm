@@ -34,7 +34,7 @@
 #include <unistd.h>                         /* UNIX standard functions                 */
 #include <net/if.h>                         /* network interfaces                      */
 #include <linux/can.h>                      /* CAN kernel definitions                  */
-#include <linux/can/raw.h>                  /* CAN raw sockets                         */
+#include <linux/sockios.h>                  /* Socket I/O                              */
 #include <sys/ioctl.h>                      /* I/O control operations                  */
 #include "cancomm.h"                        /* SocketCAN communication library         */
 
@@ -42,16 +42,13 @@
 /****************************************************************************************
 * Macro definitions
 ****************************************************************************************/
-/** \brief Maximum number of bytes in a CAN message. */
-#define CANCOMM_CAN_DATA_LEN_MAX       (8U)
-
 /** \brief Value of an invalid socket. */
 #define CANCOMM_INVALID_SOCKET         (-1)
 
 
 /************************************************************************************//**
-** \brief     Creates a new context for the CAN communication instance. All subsequent
-**            library functions need this context.
+** \brief     Creates a new CAN communication context. All subsequent library functions
+**            need this context.
 ** \return    Pointer to the newly created context, if successful. NULL otherwise.
 **
 ****************************************************************************************/
@@ -60,13 +57,13 @@ cancomm_t * cancomm_new(void)
   cancomm_t * result = NULL;
   cancomm_t * newCtx;
 
-  /* Allocate memory for the new instance. */
+  /* Allocate memory for the new context. */
   newCtx = malloc(sizeof(cancomm_t));
 
   /* Only continue if memory could be allocated. */
   if (newCtx != NULL)
   {
-    /* Initialize the instance members. */
+    /* Initialize the context members. */
     newCtx->socket = CANCOMM_INVALID_SOCKET;
     /* Update the result. */
     result = newCtx;
@@ -78,9 +75,9 @@ cancomm_t * cancomm_new(void)
 
 
 /************************************************************************************//**
-** \brief     Releases the context. Should always be called for all CAN communication
-**            instances, created with function cancomm_new(), once you no longer need it.
-** \param     ctx Pointer to the CAN communication instance context.
+** \brief     Releases the context. Should be called for each CAN communication
+**            context, created with function cancomm_new(), once you no longer need it.
+** \param     ctx Pointer to the CAN communication context.
 **
 ****************************************************************************************/
 void cancomm_free(cancomm_t * ctx)
@@ -93,7 +90,7 @@ void cancomm_free(cancomm_t * ctx)
   {
     /* Make sure to disconnect the CAN device. */
     cancomm_disconnect(ctx);
-    /* Release the instance's allocated memory. */
+    /* Release the context's allocated memory. */
     free(ctx);
     /* Reset the pointer to prevent a dangling pointer. */
     ctx = NULL;
@@ -105,7 +102,7 @@ void cancomm_free(cancomm_t * ctx)
 ** \brief     Connects to the specified SocketCAN device. Note that you can run command
 **            "ip addr" in the terminal to determine the SocketCAN device name known to
 **            your Linux system.
-** \param     ctx Pointer to the CAN communication instance context.
+** \param     ctx Pointer to the CAN communication context.
 ** \param     device Null terminated string with the SocketCAN device name, e.g. "can0".
 ** \return    CANCOMM_TRUE if successfully connected to the SocketCAN device.
 **            CANCOMM_FALSE otherwise.
@@ -190,7 +187,7 @@ uint8_t cancomm_connect(cancomm_t * ctx, char const * device)
 
 /************************************************************************************//**
 ** \brief     Disconnects from the SocketCAN device.
-** \param     ctx Pointer to the CAN communication instance context.
+** \param     ctx Pointer to the CAN communication context.
 **
 ****************************************************************************************/
 void cancomm_disconnect(cancomm_t * ctx)
@@ -213,7 +210,7 @@ void cancomm_disconnect(cancomm_t * ctx)
 
 /************************************************************************************//**
 ** \brief     Submits a CAN message for transmission.
-** \param     ctx Pointer to the CAN communication instance context.
+** \param     ctx Pointer to the CAN communication context.
 ** \param     id CAN message identifier.
 ** \param     ext CANCOMM_FALSE for a 11-bit message identifier, CANCOMM_TRUE of 29-bit.
 ** \param     len Number of CAN message data bytes.
@@ -226,6 +223,7 @@ uint8_t cancomm_transmit(cancomm_t * ctx, uint32_t id, uint8_t ext, uint8_t len,
                          uint8_t const * data)
 {
   uint8_t result = CANCOMM_FALSE;
+  struct can_frame canTxFrame = { 0 };
 
   /* Verify parameters. */
   assert((ctx != NULL) && (len <= CANCOMM_CAN_DATA_LEN_MAX) && (data != NULL));
@@ -233,7 +231,25 @@ uint8_t cancomm_transmit(cancomm_t * ctx, uint32_t id, uint8_t ext, uint8_t len,
   /* Only continue with a valid parameters. */
   if ((ctx != NULL) && (len <= CANCOMM_CAN_DATA_LEN_MAX) && (data != NULL))
   {
-    /* TODO Implement cancomm_transmit(). */
+    /* Construct the transmit frame. */
+    canTxFrame.can_id = id;
+    if (ext == CANCOMM_TRUE)
+    {
+      canTxFrame.can_id |= CAN_EFF_FLAG;
+    }
+    canTxFrame.can_dlc = len;
+    for (uint8_t idx = 0; idx < len; idx++)
+    {
+      canTxFrame.data[idx] = data[idx];
+    }
+
+    /* Request transmission of the frame. */
+    if (write(ctx->socket, &canTxFrame, sizeof(struct can_frame)) == 
+        (ssize_t)sizeof(struct can_frame))
+    {
+      /* Successfully submitted for transmission. Update the result accordingly. */
+      result = CANCOMM_TRUE;
+    }
   }
 
   /* Give the result back to the caller. */
@@ -243,21 +259,24 @@ uint8_t cancomm_transmit(cancomm_t * ctx, uint32_t id, uint8_t ext, uint8_t len,
 
 /************************************************************************************//**
 ** \brief     Retrieves a possibly received CAN message.
-** \param     ctx Pointer to the CAN communication instance context.
+** \param     ctx Pointer to the CAN communication context.
 ** \param     id Pointer to where the CAN message identifier is stored.
 ** \param     ext Pointer to where the CAN identifer type is stored. CANCOMM_FALSE for a
 **            11-bit message identifier, CANCOMM_TRUE of 29-bit.
 ** \param     len Pointer to where the number of CAN message data bytes is stored.
 ** \param     data Pointer to array where the data bytes are stored.
-** \param     timestamp Pointer to where the timestamp of the message is stored.
+** \param     timestamp Pointer to where the timestamp (microseconds) of the message is
+**            stored.
 ** \return    CANCOMM_TRUE if a new message was received and copied. CANCOMM_FALSE 
 **            otherwise.
 **
 ****************************************************************************************/
 uint8_t cancomm_receive(cancomm_t * ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                        uint8_t * data, uint32_t * timestamp)
+                        uint8_t * data, uint64_t * timestamp)
 {
   uint8_t result = CANCOMM_FALSE;
+  struct can_frame canRxFrame = { 0 };
+  struct timeval tv = { 0 };
 
   /* Verify parameters. */
   assert((ctx != NULL) && (id != NULL) && (ext != NULL) && (len != NULL) && 
@@ -267,7 +286,40 @@ uint8_t cancomm_receive(cancomm_t * ctx, uint32_t * id, uint8_t * ext, uint8_t *
   if ((ctx != NULL) && (id != NULL) && (ext != NULL) && (len != NULL) && 
       (data != NULL) && (timestamp != NULL))
   {
-    /* TODO Implement cancomm_receive(). */
+      /* Attempt to get the next CAN event from the queue. */
+      if (read(ctx->socket, &canRxFrame, sizeof(struct can_frame)) == 
+          (ssize_t)sizeof(struct can_frame))
+      {
+        /* Ignore remote frames and error information. */
+        if (!(canRxFrame.can_id & (CAN_RTR_FLAG | CAN_ERR_FLAG)))
+        {
+          /* Obtain the timestamp of the reception event. */
+          *timestamp = 0;
+          if (ioctl(ctx->socket, SIOCGSTAMP, &tv) == 0)
+          {
+            /* Convert the timestamp to microseconds. */
+            *timestamp = ((int64_t)tv.tv_sec * 1000 * 1000ULL) + ((int64_t)tv.tv_usec);
+          }
+
+          /* Copy the CAN frame. */
+          if (canRxFrame.can_id & CAN_EFF_FLAG)
+          {
+            *ext = CANCOMM_TRUE;
+          }
+          else
+          {
+            *ext = CANCOMM_FALSE;
+          }
+          *id = canRxFrame.can_id & ~CAN_EFF_FLAG;
+          *len = canRxFrame.can_dlc;
+          for (uint8_t idx = 0; idx < canRxFrame.can_dlc; idx++)
+          {
+            data[idx] = canRxFrame.data[idx];
+          }
+          /* Frame successfully read. Update the result accordingly. */
+          result = CANCOMM_TRUE;
+        }        
+      }
   }
 
   /* Give the result back to the caller. */
