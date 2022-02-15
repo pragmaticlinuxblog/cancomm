@@ -51,8 +51,11 @@ extern "C" {
 /** \brief Structure for grouping all CAN communication context related data. */
 typedef struct
 {
-  char    * device;
-  uint8_t   connected;
+  /** \brief CAN raw socket handle. Also used to determine the connection state
+   *         internally. CANCOMM_INVALID_SOCKET if not connected, any other value if
+   *         connected.
+   */
+  uint32_t  socket;
 } cancomm_t;
 
 

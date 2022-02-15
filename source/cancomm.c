@@ -28,6 +28,14 @@
 ****************************************************************************************/
 #include <assert.h>                         /* for assertions                          */
 #include <stddef.h>                         /* for NULL declaration                    */
+#include <stdlib.h>                         /* for standard library                    */
+#include <string.h>                         /* for string library                      */
+#include <fcntl.h>                          /* File control operations                 */
+#include <unistd.h>                         /* UNIX standard functions                 */
+#include <net/if.h>                         /* network interfaces                      */
+#include <linux/can.h>                      /* CAN kernel definitions                  */
+#include <linux/can/raw.h>                  /* CAN raw sockets                         */
+#include <sys/ioctl.h>                      /* I/O control operations                  */
 #include "cancomm.h"                        /* SocketCAN communication library         */
 
 
@@ -36,6 +44,9 @@
 ****************************************************************************************/
 /** \brief Maximum number of bytes in a CAN message. */
 #define CANCOMM_CAN_DATA_LEN_MAX       (8U)
+
+/** \brief Value of an invalid socket. */
+#define CANCOMM_INVALID_SOCKET         (-1)
 
 
 /************************************************************************************//**
@@ -47,8 +58,19 @@
 cancomm_t * cancomm_new(void)
 {
   cancomm_t * result = NULL;
+  cancomm_t * newCtx;
 
-  /* TODO Allocate memory for the context and initialize its members. */
+  /* Allocate memory for the new instance. */
+  newCtx = malloc(sizeof(cancomm_t));
+
+  /* Only continue if memory could be allocated. */
+  if (newCtx != NULL)
+  {
+    /* Initialize the instance members. */
+    newCtx->socket = CANCOMM_INVALID_SOCKET;
+    /* Update the result. */
+    result = newCtx;
+  }
 
   /* Give the result back to the caller. */
   return result;
@@ -69,7 +91,12 @@ void cancomm_free(cancomm_t * ctx)
   /* Only continue with a valid parameter. */
   if (ctx != NULL)
   {
-    /* TODO Release allocated memory of the context. */
+    /* Make sure to disconnect the CAN device. */
+    cancomm_disconnect(ctx);
+    /* Release the instance's allocated memory. */
+    free(ctx);
+    /* Reset the pointer to prevent a dangling pointer. */
+    ctx = NULL;
   }
 } /*** end of cancomm_free ***/
 
@@ -87,6 +114,9 @@ void cancomm_free(cancomm_t * ctx)
 uint8_t cancomm_connect(cancomm_t * ctx, char const * device)
 {
   uint8_t result = CANCOMM_FALSE;
+  struct sockaddr_can addr;
+  struct ifreq ifr;
+  int32_t flags;
 
   /* Verify parameters. */
   assert((ctx != NULL) && (device != NULL));
@@ -94,7 +124,63 @@ uint8_t cancomm_connect(cancomm_t * ctx, char const * device)
   /* Only continue with a valid parameters. */
   if ((ctx != NULL) && (device != NULL))
   {
-    /* TODO Implement cancomm_connect(). */
+    /* Set positive result at this point and negate upon error detection. */
+    result = CANCOMM_TRUE;
+
+    /* Make sure we are not already connected to a CAN device. */
+    cancomm_disconnect(ctx);
+
+    /* Create an ifreq structure for passing data in and out of ioctl. */
+    strncpy(ifr.ifr_name, device, IFNAMSIZ - 1);
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+    /* Get open socket descriptor */
+    if ((ctx->socket = socket(PF_CAN, (int)SOCK_RAW, CAN_RAW)) < 0)
+    {
+      result = CANCOMM_FALSE;
+    }
+
+    if (result == CANCOMM_TRUE)
+    {
+      /* Obtain interface index. */
+      if (ioctl(ctx->socket, SIOCGIFINDEX, &ifr) < 0)
+      {
+        close(ctx->socket);
+        ctx->socket = CANCOMM_INVALID_SOCKET;
+        result = CANCOMM_FALSE;
+      }
+    }
+
+    if (result == CANCOMM_TRUE)
+    {
+      /* Configure socket to work in non-blocking mode. */
+      flags = fcntl(ctx->socket, F_GETFL, 0);
+      if (flags == -1)
+      {
+        flags = 0;
+      }
+      if (fcntl(ctx->socket, F_SETFL, flags | O_NONBLOCK) == -1)
+      {
+        close(ctx->socket);
+        ctx->socket = CANCOMM_INVALID_SOCKET;
+        result = CANCOMM_FALSE;
+      }
+    }
+
+    if (result)
+    {
+      /* Set the address info. */
+      addr.can_family = AF_CAN;
+      addr.can_ifindex = ifr.ifr_ifindex;
+
+      /* Bind the socket. */
+      if (bind(ctx->socket, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+      {
+        close(ctx->socket);
+        ctx->socket = CANCOMM_INVALID_SOCKET;
+        result = CANCOMM_FALSE;
+      }
+    }
   }
 
   /* Give the result back to the caller. */
@@ -115,7 +201,12 @@ void cancomm_disconnect(cancomm_t * ctx)
   /* Only continue with a valid parameter. */
   if (ctx != NULL)
   {
-    /* TODO Implement cancomm_disconnect(). */
+    /* Only disconnect if actually connected. */
+    if (ctx->socket != CANCOMM_INVALID_SOCKET)
+    {
+      close(ctx->socket);
+      ctx->socket = CANCOMM_INVALID_SOCKET;
+    }
   }
 } /*** end of cancomm_disconnect ***/
 

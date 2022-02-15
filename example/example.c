@@ -33,25 +33,54 @@
 * Include files
 ****************************************************************************************/
 #include <stdint.h>                         /* for standard integer types              */
-#include <stdio.h>                          /* Standard I/O functions.                 */
+#include <stdio.h>                          /* for standard I/O functions.             */
+#include <stdlib.h>                         /* for standard library                    */
 #include <cancomm.h>                        /* SocketCAN communication library         */
+
+
+/****************************************************************************************
+* Local constant declarations
+****************************************************************************************/
+/** \brief Name of the SocketCAN device. Adjust to the one you want to use. */
+static const char * canDevice = "vcan0";
 
 
 /************************************************************************************//**
 ** \brief     This is the program entry point.
 ** \param     argc Number of program arguments.
 ** \param     argv Array with program arguments.
-** \return    Program return code. 0 for success, error code otherwise.
+** \return    Program exit code. EXIT_SUCCESS for success, EXIT_FAILURE otherwise.
 **
 ****************************************************************************************/
 int main(int argc, char const * const argv[])
 {
-  int result = 0U;
+  int result = EXIT_SUCCESS;
+  cancomm_t * canCommCtx;
 
-  printf("Hello World\n");
+  /* Create a new CAN communication context. */
+  if ((canCommCtx = cancomm_new()) == NULL)
+  {
+    printf("[ERROR] Could not create CAN communication context.\n");
+    return EXIT_FAILURE;
+  }
 
-  /* Give the result back to the caller. */
-  return result;
+  /* Connect to the CAN device. */
+  if (cancomm_connect(canCommCtx, canDevice) == CANCOMM_FALSE)
+  {
+    printf("[ERROR] Could not connect to CAN device %s.\n", canDevice);
+    return EXIT_FAILURE;
+  }
+
+  /* TODO Implement example CAN communication functionality. */
+
+  /* Disconnect the CAN device. */
+  cancomm_disconnect(canCommCtx);
+
+  /* Release the CAN communication context. */
+  cancomm_free(canCommCtx);
+
+  /* Give the return code back to the caller. */
+  return EXIT_SUCCESS;
 } /*** end of main ***/
 
 
