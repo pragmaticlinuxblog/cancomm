@@ -365,4 +365,98 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
 } /*** end of cancomm_receive ***/
 
 
+/************************************************************************************//**
+** \brief     Builds a list with all the CAN device names currently present on the
+**            system. Basically an internal array with strings such as can0, vcan0, etc.
+**            Afterwards, you can call the cancomm_devices_get_xxx functions to retrieve
+**            information about a specific device, using its array index.
+** \param     ctx CAN communication context.
+** \return    The total number of CAN devices currently present on the system, or 0 if
+**            none were found or in case of an error.
+**
+****************************************************************************************/
+uint8_t cancomm_devices_build_list(cancomm_t ctx)
+{
+  uint8_t result;
+  struct cancomm_ctx * currentCtx;
+
+  /* Verify parameter. */
+  assert(ctx != NULL);
+
+  /* Only continue with a valid parameter. */
+  if (ctx != NULL)
+  {
+    /* Cast the opaque pointer to its non-opaque counter part. */
+    currentCtx = (struct cancomm_ctx *)ctx;
+
+    /* TODO Implement cancomm_devices_build_list(). */
+  }
+
+  /* Give the result back to the caller. */
+  return result;
+} /*** end of cancomm_devices_build_list ***/
+
+
+/************************************************************************************//**
+** \brief     Obtains the CAN device name at the specified index of the internal array
+**            with CAN devices, created by function cancomm_devices_build_list().
+** \attention Call cancomm_devices_build_list() prior to calling this function.
+** \param     ctx CAN communication context.
+** \param     idx Zero based index inthe to device list.
+** \return    The CAN device name at the specified index, or NULL in case of an error.
+**
+****************************************************************************************/
+char * cancomm_devices_get_name(cancomm_t ctx, uint8_t idx)
+{
+  char * result = NULL;
+  struct cancomm_ctx * currentCtx;
+
+  /* Verify parameter. */
+  assert(ctx != NULL);
+
+  /* Only continue with a valid parameter. */
+  if (ctx != NULL)
+  {
+    /* Cast the opaque pointer to its non-opaque counter part. */
+    currentCtx = (struct cancomm_ctx *)ctx;
+
+    /* TODO Implement cancomm_devices_get_name(). */
+  }
+
+  /* Give the result back to the caller. */
+  return result;
+} /*** end of cancomm_devices_get_name ***/
+
+
+/************************************************************************************//**
+** \brief     Obtains the CAN device baudrate at the specified index of the internal
+**            array with CAN devices, created by function cancomm_devices_build_list().
+** \attention Call cancomm_devices_build_list() prior to calling this function.
+** \param     ctx CAN communication context.
+** \param     idx Zero based index inthe to device list.
+** \return    The CAN device name at the specified index, or NULL in case of an error.
+**
+****************************************************************************************/
+uint32_t cancomm_devices_get_baudrate(cancomm_t ctx, uint8_t idx)
+{
+  uint32_t result = 0;
+  struct cancomm_ctx * currentCtx;
+
+  /* Verify parameter. */
+  assert(ctx != NULL);
+
+  /* Only continue with a valid parameter. */
+  if (ctx != NULL)
+  {
+    /* Cast the opaque pointer to its non-opaque counter part. */
+    currentCtx = (struct cancomm_ctx *)ctx;
+
+    /* TODO Implement cancomm_devices_get_baudrate(). */
+  }
+
+  /* Give the result back to the caller. */
+  return result;
+} /*** end ofcancomm_devices_get_baudrate ***/
+
+
 /*********************************** end of cancomm.c **********************************/

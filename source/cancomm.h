@@ -58,16 +58,17 @@ typedef void * cancomm_t;
 /****************************************************************************************
 * Function prototypes
 ****************************************************************************************/
-/* TODO Perhaps add API to enumerate list of CAN devices. */
-cancomm_t cancomm_new(void);
-void      cancomm_free(cancomm_t ctx);
-uint8_t   cancomm_connect(cancomm_t ctx, char const * device);
-void      cancomm_disconnect(cancomm_t ctx);
-uint8_t   cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
-                           uint8_t const * data);
-uint8_t   cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                           uint8_t * data, uint64_t * timestamp);
-
+cancomm_t   cancomm_new(void);
+void        cancomm_free(cancomm_t ctx);
+uint8_t     cancomm_connect(cancomm_t ctx, char const * device);
+void        cancomm_disconnect(cancomm_t ctx);
+uint8_t     cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
+                             uint8_t const * data);
+uint8_t     cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
+                             uint8_t * data, uint64_t * timestamp);
+uint8_t     cancomm_devices_build_list(cancomm_t ctx);
+char      * cancomm_devices_get_name(cancomm_t ctx, uint8_t idx);
+uint32_t    cancomm_devices_get_baudrate(cancomm_t ctx, uint8_t idx);
 
 #ifdef __cplusplus
 }
