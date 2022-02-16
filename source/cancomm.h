@@ -51,33 +51,22 @@ extern "C" {
 /****************************************************************************************
 * Type definitions
 ****************************************************************************************/
-/* TODO Perhaps make this a void * to hide its actual contents to the source file. 
- * Found some related info here:
- * https://stackoverflow.com/questions/1154709/how-can-i-hide-the-declaration-of-a-struct-in-c/1154730
- */
-/** \brief Structure for grouping all CAN communication context related data. */
-typedef struct
-{
-  /** \brief CAN raw socket handle. Also used to determine the connection state
-   *         internally. CANCOMM_INVALID_SOCKET if not connected, any other value if
-   *         connected.
-   */
-  uint32_t  socket;
-} cancomm_t;
+/** \brief Opaque pointer for the CAN communication context. */
+typedef void * cancomm_t;
 
 
 /****************************************************************************************
 * Function prototypes
 ****************************************************************************************/
 /* TODO Perhaps add API to enumerate list of CAN devices. */
-cancomm_t * cancomm_new(void);
-void        cancomm_free(cancomm_t * ctx);
-uint8_t     cancomm_connect(cancomm_t * ctx, char const * device);
-void        cancomm_disconnect(cancomm_t * ctx);
-uint8_t     cancomm_transmit(cancomm_t * ctx, uint32_t id, uint8_t ext, uint8_t len, 
-                             uint8_t const * data);
-uint8_t     cancomm_receive(cancomm_t * ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                             uint8_t * data, uint64_t * timestamp);
+cancomm_t cancomm_new(void);
+void      cancomm_free(cancomm_t ctx);
+uint8_t   cancomm_connect(cancomm_t ctx, char const * device);
+void      cancomm_disconnect(cancomm_t ctx);
+uint8_t   cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
+                           uint8_t const * data);
+uint8_t   cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
+                           uint8_t * data, uint64_t * timestamp);
 
 
 #ifdef __cplusplus

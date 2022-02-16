@@ -70,12 +70,12 @@ static void AppInterruptSignalHandler(int signum);
 ****************************************************************************************/
 int main(int argc, char const * const argv[])
 {
-  cancomm_t * canCommCtx;
-  uint32_t    canId;
-  uint8_t     canExt;
-  uint8_t     canDlc;
-  uint8_t     canData[CANCOMM_CAN_DATA_LEN_MAX];
-  uint64_t    canTimestamp;
+  cancomm_t canCommCtx;
+  uint32_t  canId;
+  uint8_t   canExt;
+  uint8_t   canDlc;
+  uint8_t   canData[CANCOMM_CAN_DATA_LEN_MAX];
+  uint64_t  canTimestamp;
 
   /* Initialize locals. */
   atomic_init(&appExitProgram, false);
