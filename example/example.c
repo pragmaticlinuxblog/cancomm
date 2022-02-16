@@ -74,7 +74,7 @@ int main(int argc, char const * const argv[])
   uint32_t  canId;
   uint8_t   canExt;
   uint8_t   canDlc;
-  uint8_t   canData[CANCOMM_CAN_DATA_LEN_MAX];
+  uint8_t   canData[CANCOMM_DATA_LEN_MAX];
   uint64_t  canTimestamp;
 
   /* Initialize locals. */

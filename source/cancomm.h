@@ -45,7 +45,7 @@ extern "C" {
 #define CANCOMM_FALSE                  (0)
 
 /** \brief Maximum number of bytes in a CAN message. */
-#define CANCOMM_CAN_DATA_LEN_MAX       (8)
+#define CANCOMM_DATA_LEN_MAX           (8)
 
 
 /****************************************************************************************
@@ -58,17 +58,20 @@ typedef void * cancomm_t;
 /****************************************************************************************
 * Function prototypes
 ****************************************************************************************/
+/* API for obtaining a context, allowing multiple applications to use this library. */
 cancomm_t   cancomm_new(void);
 void        cancomm_free(cancomm_t ctx);
+/* API for CAN communication using a specific CAN device. */
 uint8_t     cancomm_connect(cancomm_t ctx, char const * device);
 void        cancomm_disconnect(cancomm_t ctx);
 uint8_t     cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
                              uint8_t const * data);
 uint8_t     cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
                              uint8_t * data, uint64_t * timestamp);
-uint8_t     cancomm_devices_build_list(cancomm_t ctx);
-char      * cancomm_devices_get_name(cancomm_t ctx, uint8_t idx);
-uint32_t    cancomm_devices_get_baudrate(cancomm_t ctx, uint8_t idx);
+uint32_t    cancomm_bitrate(cancomm_t ctx);
+/* API for obtaining CAN device names on the system (can0, vcan0, etc.). */
+uint8_t     cancomm_devices_buildlist(cancomm_t ctx);
+char      * cancomm_devices_name(cancomm_t ctx, uint8_t idx);
 
 #ifdef __cplusplus
 }
