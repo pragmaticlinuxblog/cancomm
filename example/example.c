@@ -62,7 +62,10 @@ static void AppInterruptSignalHandler(int signum);
 
 
 /************************************************************************************//**
-** \brief     This is the program entry point.
+** \brief     This example program lists all CAN devices detected on the system. If at 
+**            least one was found, it connects to the first one. In the program loop, it
+**            receives all CAN messages and echoes them back with an incremented CAN
+**            identifier value.
 ** \param     argc Number of program arguments.
 ** \param     argv Array with program arguments.
 ** \return    Program exit code. EXIT_SUCCESS for success, EXIT_FAILURE otherwise.
@@ -70,7 +73,11 @@ static void AppInterruptSignalHandler(int signum);
 ****************************************************************************************/
 int main(int argc, char const * const argv[])
 {
+  int       result = EXIT_SUCCESS;
   cancomm_t canCommCtx;
+  uint32_t  canDeviceCnt;
+  uint32_t  canDeviceIdx;
+  char *    canDevice;
   uint32_t  canId;
   uint8_t   canExt;
   uint8_t   canDlc;
@@ -84,48 +91,87 @@ int main(int argc, char const * const argv[])
   signal(SIGINT, AppInterruptSignalHandler);
 
   /* Create a new CAN communication context. */
-  if ((canCommCtx = cancomm_new()) == NULL)
+  canCommCtx = cancomm_new();
+  if (canCommCtx != NULL)
+  {
+    printf("[INFO] Created CAN communication context.\n");
+  }
+  else
   {
     printf("[ERROR] Could not create CAN communication context.\n");
-    return EXIT_FAILURE;
+    result = EXIT_FAILURE;
   }
-  printf("[INFO] Created CAN communication context.\n");
 
-
-  /* Connect to the CAN device. */
-  if (cancomm_connect(canCommCtx, canDevice) == CANCOMM_FALSE)
+  /* List all CAN devices found on the system. */
+  if (result == EXIT_SUCCESS)
   {
-    printf("[ERROR] Could not connect to CAN device %s.\n", canDevice);
-    return EXIT_FAILURE;
+    printf("[INFO] Detecting CAN devices: ");
+    canDeviceCnt = cancomm_devices_buildlist(canCommCtx);
+    for (canDeviceIdx = 0; canDeviceIdx < canDeviceCnt; canDeviceIdx++)
+    {
+      printf("'%s' ", cancomm_devices_name(canCommCtx, canDeviceIdx));
+    }
+    printf("(%d found).\n", canDeviceCnt);
+
+    /* Can only continue if at least one CAN device was detected. */
+    if (canDeviceCnt == 0)
+    {
+      printf("[ERROR] No CAN devices detected on the system.\n");
+      result = EXIT_FAILURE;
+    }
   }
-  printf("[INFO] Connected to CAN device %s.\n", canDevice);
+
+  /* Connect to the first detected CAN device. */
+  if (result == EXIT_SUCCESS)
+  {
+    canDevice = cancomm_devices_name(canCommCtx, 0);
+    if (cancomm_connect(canCommCtx, canDevice) == CANCOMM_TRUE)
+    {
+      printf("[INFO] Connected to CAN device '%s'.\n", canDevice);
+    }
+    else
+    {
+      printf("[ERROR] Could not connect to CAN device '%s'.\n", canDevice);
+      result = EXIT_FAILURE;
+    }
+  }
 
   /* Enter the program loop until an exit (CTRL+C) is requested. */
-  while (!atomic_load(&appExitProgram))
+  if (result == EXIT_SUCCESS)
   {
-    /* Check for the reception of a CAN message. */
-    if (cancomm_receive(canCommCtx, &canId, &canExt, &canDlc, &canData[0], 
-                        &canTimestamp) == CANCOMM_TRUE)
+    printf("[INFO] Entering message reception loop. Press CTRL+C to exit.\n", canDevice);
+    while (!atomic_load(&appExitProgram))
     {
-      printf("[PING] Received CAN message with ID %Xh.\n", canId);
-      /* Send the same message back but with an incremented identifier. */
-      if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData) == CANCOMM_TRUE)
+      /* Check for the reception of a CAN message. */
+      if (cancomm_receive(canCommCtx, &canId, &canExt, &canDlc, &canData[0], 
+                          &canTimestamp) == CANCOMM_TRUE)
       {
-        printf("[PONG] Transmitted CAN message with ID %Xh.\n", canId);
+        printf("[PING] Received CAN message with ID %Xh.\n", canId);
+        /* Send the same message back but with an incremented identifier. */
+        if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData) == CANCOMM_TRUE)
+        {
+          printf("[PONG] Transmitted CAN message with ID %Xh.\n", canId);
+        }
       }
     }
   }
 
   /* Disconnect the CAN device. */
-  cancomm_disconnect(canCommCtx);
-  printf("[INFO] Disconnected from CAN device.\n");
+  if (result == EXIT_SUCCESS)
+  {
+    cancomm_disconnect(canCommCtx);
+    printf("[INFO] Disconnected from CAN device.\n");
+  }
 
   /* Release the CAN communication context. */
-  cancomm_free(canCommCtx);
-  printf("[INFO] Released CAN communication context.\n");
+  if (canCommCtx != NULL)
+  {
+    cancomm_free(canCommCtx);
+    printf("[INFO] Released CAN communication context.\n");
+  }
 
-  /* Give the return code back to the caller. */
-  return EXIT_SUCCESS;
+  /* Give the result back to the caller. */
+  return result;
 } /*** end of main ***/
 
 
@@ -139,6 +185,8 @@ static void AppInterruptSignalHandler(int signum)
 {
   /* Set request flag to exit the program when the CTRL+C key combo was pressed. */
   atomic_store(&appExitProgram, true);
+  /* Move to the next line, so after the ^C output. */
+  printf("\n");
 } /*** end of AppInterruptSignalHandler ***/
 
 

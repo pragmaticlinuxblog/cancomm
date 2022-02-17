@@ -33,9 +33,11 @@
 #include <fcntl.h>                          /* File control operations                 */
 #include <unistd.h>                         /* UNIX standard functions                 */
 #include <net/if.h>                         /* network interfaces                      */
+#include <linux/if_arp.h>                   /* ARP definitions                         */
 #include <linux/can.h>                      /* CAN kernel definitions                  */
 #include <linux/sockios.h>                  /* Socket I/O                              */
 #include <sys/ioctl.h>                      /* I/O control operations                  */
+#include <ifaddrs.h>                        /* Listing network interfaces.             */
 #include "cancomm.h"                        /* SocketCAN communication library         */
 
 
@@ -59,7 +61,19 @@ struct cancomm_ctx
    *         connected.
    */
   uint32_t socket;
+  /** \brief Holds the number of CAN devices that were detected on the system. */
+  uint32_t devices_cnt;
+  /** \brief Pointer to an array of strings with the names of CAN devices that were
+   *         detected on the system. Memory is allocated dynamically.
+   */
+  char * devices_list;
 };
+
+
+/****************************************************************************************
+* Function prototypes
+****************************************************************************************/
+static uint8_t cancomm_devices_is_can(char const * name);
 
 
 /************************************************************************************//**
@@ -81,6 +95,8 @@ cancomm_t cancomm_new(void)
   {
     /* Initialize the context members. */
     newCtx->socket = CANCOMM_INVALID_SOCKET;
+    newCtx->devices_cnt = 0;
+    newCtx->devices_list = NULL;
     /* Update the result. */
     result = (cancomm_t)newCtx;
   }
@@ -111,6 +127,14 @@ void cancomm_free(cancomm_t ctx)
 
     /* Make sure to disconnect the CAN device. */
     cancomm_disconnect(currentCtx);
+    /* Release memory allocated for the devices list. */
+    if (currentCtx->devices_list != NULL)
+    {
+      free(currentCtx->devices_list);
+      currentCtx->devices_list = NULL;
+      currentCtx->devices_cnt = 0;
+    }
+
     /* Release the context's allocated memory. */
     free(currentCtx);
     /* Reset the pointer to prevent a dangling pointer. */
@@ -421,8 +445,10 @@ uint32_t cancomm_bitrate(cancomm_t ctx)
 ****************************************************************************************/
 uint8_t cancomm_devices_buildlist(cancomm_t ctx)
 {
-  uint8_t result;
+  uint8_t result = 0;
   struct cancomm_ctx * currentCtx;
+  struct ifaddrs *ifaddr;
+  char * deviceNameEntryPtr;
 
   /* Verify parameter. */
   assert(ctx != NULL);
@@ -433,7 +459,55 @@ uint8_t cancomm_devices_buildlist(cancomm_t ctx)
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
 
-    /* TODO Implement cancomm_devices_buildlist(). */
+    /* Reset the devices count in the context. */
+    currentCtx->devices_cnt = 0;
+
+    /* Attempt to obtain access to the linked list with network interfaces. */
+    if (getifaddrs(&ifaddr) == 0) 
+    {
+      /* Loop through the linked list, while maintaining head pointer, needed to free the
+       * list later on.
+       */
+      for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+      {
+        /* We are interested in the ifa_name element, so only process the node, when this
+         * one is valid.
+        */
+        if (ifa->ifa_name != NULL)
+        {
+          /* Check if this network interface is actually a CAN interface. */
+          if (cancomm_devices_is_can(ifa->ifa_name) == CANCOMM_TRUE)
+          {
+            /* Increment the devices count in the context. */
+            currentCtx->devices_cnt++;
+            /* Allocate memory in the devices list to store the device name. */
+            currentCtx->devices_list = realloc(currentCtx->devices_list, 
+                                               currentCtx->devices_cnt * IFNAMSIZ);
+            /* Check allocation results. */
+            if (currentCtx->devices_list == NULL)
+            {
+              /* Could not build the devices list due to an allocation issue. Reset
+               * the counter and break the loop. 
+               */
+              currentCtx->devices_cnt = 0;
+              break;
+            }
+            /* Still here so the allocation was successful. Now determine the address
+             * inside the device list, where to store the device name. It's basically
+             * the start of the newly allocated memory.
+             */
+            deviceNameEntryPtr = &currentCtx->devices_list[(currentCtx->devices_cnt - 1)
+                                                           * IFNAMSIZ]; 
+            /* Store the device name in the list. */
+            strncpy(deviceNameEntryPtr, ifa->ifa_name, IFNAMSIZ);
+          }
+        }
+      }
+      /* Free the list, now that we are done with it. */
+      freeifaddrs(ifaddr);
+      /* Update the result. */
+      result = currentCtx->devices_cnt;
+    }
   }
 
   /* Give the result back to the caller. */
@@ -465,12 +539,63 @@ char * cancomm_devices_name(cancomm_t ctx, uint8_t idx)
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
 
-    /* TODO Implement cancomm_devices_name(). */
+    /* Only continue if the specified index is valid. */
+    if (idx < currentCtx->devices_cnt)
+    {
+      /* Point the result to the CAN device name as the specified index. */
+      result = &currentCtx->devices_list[idx];
+    }
   }
 
   /* Give the result back to the caller. */
   return result;
 } /*** end of cancomm_devices_name ***/
+
+
+/************************************************************************************//**
+** \brief     Determines if the specified network interface name is a CAN device.
+** \param     name Network interface name. For example obtained by getifaddrs().
+** \return    CANCOMM_TRUE is the specified network interface name is a CAN device,
+**            CANCOMM_FALSE otherwise.
+**
+****************************************************************************************/
+static uint8_t cancomm_devices_is_can(char const * name)
+{
+  uint8_t result = CANCOMM_FALSE;
+  struct ifreq ifr;
+  int canSocket;
+
+  /* Verify parameter. */
+  assert(name != NULL);
+
+  /* Only continue with valid parameter and acceptable length of the interface name. */
+  if ( (name != NULL) && (strlen(name) < IFNAMSIZ) )
+  {
+    /* Create an ifreq structure for passing data in and out of ioctl. */
+    strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+    /* Get open socket descriptor */
+    if ((canSocket = socket(PF_CAN, (int)SOCK_RAW, CAN_RAW)) != -1)
+    {
+      /* Obtain the hardware address information. */
+      if (ioctl(canSocket, SIOCGIFHWADDR, &ifr) != -1)
+      {
+        /* Is this a CAN device? */
+        if (ifr.ifr_hwaddr.sa_family == ARPHRD_CAN)
+        {
+          /* Update the result accordingly. */
+          result = CANCOMM_TRUE;
+        }
+      }
+      /* Close the socket, now that we are done with it. */
+      close(canSocket);
+    }
+  }
+ 
+  /* Give the result back to the caller. */
+  return result;
+} /*** end of AppIsCanInterface ***/
 
 
 /*********************************** end of cancomm.c **********************************/
