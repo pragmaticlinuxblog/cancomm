@@ -68,7 +68,6 @@ uint8_t     cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t le
                              uint8_t const * data);
 uint8_t     cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
                              uint8_t * data, uint64_t * timestamp);
-uint32_t    cancomm_bitrate(cancomm_t ctx);
 /* API for obtaining CAN device names on the system (can0, vcan0, etc.). */
 uint8_t     cancomm_devices_buildlist(cancomm_t ctx);
 char      * cancomm_devices_name(cancomm_t ctx, uint8_t idx);

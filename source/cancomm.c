@@ -398,42 +398,6 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
 
 
 /************************************************************************************//**
-** \brief     Obtains the configured bitrate of the connected CAN device.
-** \param     ctx CAN communication context.
-** \return    The configured bitrate of the conected CAN device, or 0 in case of an 
-**            error.
-**
-****************************************************************************************/
-uint32_t cancomm_bitrate(cancomm_t ctx)
-{
-  uint32_t result = 0;
-  struct cancomm_ctx * currentCtx;
-
-  /* Verify parameter. */
-  assert(ctx != NULL);
-
-  /* Only continue with a valid parameter. */
-  if (ctx != NULL)
-  {
-    /* Cast the opaque pointer to its non-opaque counter part. */
-    currentCtx = (struct cancomm_ctx *)ctx;
-
-    /* Only read the bitrate if actually connected. */
-    if (currentCtx->socket != CANCOMM_INVALID_SOCKET)
-    {
-      /* TODO Implement cancomm_bitrate(). Probably want to actually retrieve the
-       * bitrate already in function cancomm_connect(), because you need the device name.
-      * Then just store it in the context and read it out in this function.
-      */
-    }
-  }
-
-  /* Give the result back to the caller. */
-  return result;
-} /*** end of cancomm_bitrate ***/
-
-
-/************************************************************************************//**
 ** \brief     Builds a list with all the CAN device names currently present on the
 **            system. Basically an internal array with strings such as can0, vcan0, etc.
 **            Afterwards, you can call the cancomm_devices_get_xxx functions to retrieve
