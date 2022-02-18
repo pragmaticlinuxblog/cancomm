@@ -148,7 +148,8 @@ int main(int argc, char const * const argv[])
       {
         printf("[PING] Received CAN message with ID %Xh.\n", canId);
         /* Send the same message back but with an incremented identifier. */
-        if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData) == CANCOMM_TRUE)
+        if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData, 
+                            &canTimestamp) == CANCOMM_TRUE)
         {
           printf("[PONG] Transmitted CAN message with ID %Xh.\n", canId);
         }

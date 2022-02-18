@@ -37,6 +37,7 @@
 #include <linux/can.h>                      /* CAN kernel definitions                  */
 #include <linux/sockios.h>                  /* Socket I/O                              */
 #include <sys/ioctl.h>                      /* I/O control operations                  */
+#include <sys/time.h>                       /* System time utilities                   */
 #include <ifaddrs.h>                        /* Listing network interfaces.             */
 #include "cancomm.h"                        /* SocketCAN communication library         */
 
@@ -61,6 +62,10 @@ struct cancomm_ctx
    *         connected.
    */
   uint32_t socket;
+  /** \brief System time at which this module connected to the CAN network. Used to
+   *         calculated zero based CAN message timestamps.
+   */
+  uint64_t connectTime;
   /** \brief Holds the number of CAN devices that were detected on the system. */
   uint32_t devices_cnt;
   /** \brief Pointer to an array of strings with the names of CAN devices that were
@@ -88,13 +93,14 @@ cancomm_t cancomm_new(void)
   struct cancomm_ctx * newCtx;
 
   /* Allocate memory for the new context. */
-  newCtx = malloc(sizeof(cancomm_t));
+  newCtx = malloc(sizeof(struct cancomm_ctx));
 
   /* Only continue if memory could be allocated. */
   if (newCtx != NULL)
   {
     /* Initialize the context members. */
     newCtx->socket = CANCOMM_INVALID_SOCKET;
+    newCtx->connectTime = 0;
     newCtx->devices_cnt = 0;
     newCtx->devices_list = NULL;
     /* Update the result. */
@@ -160,6 +166,7 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
   struct sockaddr_can addr;
   struct ifreq ifr;
   int32_t flags;
+  struct timeval tv = { 0 };
 
   /* Verify parameters. */
   assert((ctx != NULL) && (device != NULL));
@@ -180,10 +187,27 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
     strncpy(ifr.ifr_name, device, IFNAMSIZ - 1);
     ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 
-    /* Get open socket descriptor */
-    if ((currentCtx->socket = socket(PF_CAN, (int)SOCK_RAW, CAN_RAW)) < 0)
+    /* Get current system time. */
+    if (gettimeofday(&tv, NULL) == 0)
+    {
+      /* Convert the current time to microseconds and store it as the connection start
+       * time. Needed for zero based timestamp. 
+       */
+      currentCtx->connectTime = ((int64_t)tv.tv_sec * 1000 * 1000ULL) +
+                               ((int64_t)tv.tv_usec);
+    }
+    else
     {
       result = CANCOMM_FALSE;
+    }
+
+    if (result == CANCOMM_TRUE)
+    {
+      /* Get open socket descriptor */
+      if ((currentCtx->socket = socket(PF_CAN, (int)SOCK_RAW, CAN_RAW)) < 0)
+      {
+        result = CANCOMM_FALSE;
+      }
     }
 
     if (result == CANCOMM_TRUE)
@@ -213,7 +237,7 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
       }
     }
 
-    if (result)
+    if (result == CANCOMM_TRUE)
     {
       /* Set the address info. */
       addr.can_family = AF_CAN;
@@ -269,16 +293,19 @@ void cancomm_disconnect(cancomm_t ctx)
 ** \param     ext CANCOMM_FALSE for a 11-bit message identifier, CANCOMM_TRUE of 29-bit.
 ** \param     len Number of CAN message data bytes.
 ** \param     data Pointer to array with data bytes.
+** \param     timestamp Pointer to where the timestamp (microseconds) of the message is
+**            stored.
 ** \return    CANCOMM_TRUE if successfully submitted the message for transmission.
 **            CANCOMM_FALSE otherwise.
 **
 ****************************************************************************************/
 uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
-                         uint8_t const * data)
+                         uint8_t const * data , uint64_t * timestamp)
 {
   uint8_t result = CANCOMM_FALSE;
   struct cancomm_ctx * currentCtx;
   struct can_frame canTxFrame = { 0 };
+  struct timeval tv = { 0 };
 
   /* Verify parameters. */
   assert((ctx != NULL) && (len <= CAN_MAX_DLEN) && (data != NULL));
@@ -308,6 +335,15 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
       if (write(currentCtx->socket, &canTxFrame, sizeof(struct can_frame)) == 
           (ssize_t)sizeof(struct can_frame))
       {
+        /* Get the timestamp of the transmit event. */
+        *timestamp = 0;
+        if (gettimeofday(&tv, NULL) == 0)
+        {
+          /* Convert the timestamp to microseconds. */
+          *timestamp = ((int64_t)tv.tv_sec * 1000 * 1000ULL) + ((int64_t)tv.tv_usec);
+          /* Make the timestamp relative to the connection time. */
+          *timestamp -= currentCtx->connectTime;
+        }
         /* Successfully submitted for transmission. Update the result accordingly. */
         result = CANCOMM_TRUE;
       }
@@ -368,6 +404,8 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
           {
             /* Convert the timestamp to microseconds. */
             *timestamp = ((int64_t)tv.tv_sec * 1000 * 1000ULL) + ((int64_t)tv.tv_usec);
+            /* Make the timestamp relative to the connection time. */
+            *timestamp -= currentCtx->connectTime;
           }
 
           /* Copy the CAN frame. */
