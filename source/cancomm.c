@@ -281,10 +281,10 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
   struct can_frame canTxFrame = { 0 };
 
   /* Verify parameters. */
-  assert((ctx != NULL) && (len <= CANCOMM_DATA_LEN_MAX) && (data != NULL));
+  assert((ctx != NULL) && (len <= CAN_MAX_DLEN) && (data != NULL));
 
   /* Only continue with a valid parameters. */
-  if ((ctx != NULL) && (len <= CANCOMM_DATA_LEN_MAX) && (data != NULL))
+  if ((ctx != NULL) && (len <= CAN_MAX_DLEN) && (data != NULL))
   {
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
