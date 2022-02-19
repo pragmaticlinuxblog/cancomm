@@ -44,6 +44,12 @@ extern "C" {
 /** \brief Boolean false value. */
 #define CANCOMM_FALSE                  (0)
 
+/** \brief Bit flag to indicate that the message is a CAN FD message. */
+#define CANCOMM_FLAG_CANFD_MSG         (0x01)
+
+/** \brief Bit flag to indicate that the message is a CAN error frame/ */
+#define CANCOMM_FLAG_CANERR_MSG        (0x80)
+
 
 /****************************************************************************************
 * Type definitions
@@ -62,17 +68,9 @@ void        cancomm_free(cancomm_t ctx);
 uint8_t     cancomm_connect(cancomm_t ctx, char const * device);
 void        cancomm_disconnect(cancomm_t ctx);
 uint8_t     cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
-                             uint8_t const * data, uint64_t * timestamp);
-/* TODO Cannot yet receive classic CAN messages in CAN FD mode. Not sure if this is
- *      the way it's supposed to be when CAN FD mode is on. candump can receive both
- *      though..maybe I need to just add two read calls with different sizes? But the
- *      transmitter will always transmit in FD mode though...Need to investigate.
- */
-/* TODO Maybe add a flags parameter for future support of error frame detection. Ideally
- *      also implement the reception of error frames already.
- */
+                             uint8_t const * data, uint8_t flags, uint64_t * timestamp);
 uint8_t     cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                             uint8_t * data, uint64_t * timestamp);
+                             uint8_t * data, uint8_t * flags, uint64_t * timestamp);
 /* API for obtaining CAN device names on the system (can0, vcan0, etc.). */
 uint8_t     cancomm_devices_buildlist(cancomm_t ctx);
 char      * cancomm_devices_name(cancomm_t ctx, uint8_t idx);

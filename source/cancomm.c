@@ -340,6 +340,9 @@ void cancomm_disconnect(cancomm_t ctx)
 ** \param     ext CANCOMM_FALSE for a 11-bit message identifier, CANCOMM_TRUE of 29-bit.
 ** \param     len Number of CAN message data bytes.
 ** \param     data Pointer to array with data bytes.
+** \param     flags Bit flags for providing additional information about how to transmit
+**            the message:
+**              CANCOMM_FLAG_CANFD_MSG - The message is CAN FD and not CAN classic.
 ** \param     timestamp Pointer to where the timestamp (microseconds) of the message is
 **            stored.
 ** \return    CANCOMM_TRUE if successfully submitted the message for transmission.
@@ -347,7 +350,7 @@ void cancomm_disconnect(cancomm_t ctx)
 **
 ****************************************************************************************/
 uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
-                         uint8_t const * data , uint64_t * timestamp)
+                         uint8_t const * data, uint8_t flags, uint64_t * timestamp)
 {
   uint8_t result = CANCOMM_FALSE;
   struct cancomm_ctx * currentCtx;
@@ -368,12 +371,19 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
     /* Only transmit if actually connected. */
     if (currentCtx->socket != CANCOMM_INVALID_SOCKET)
     {
-      /* Determine the maximum supported frame size. */
-      frameSizeMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
-                      sizeof(struct canfd_frame) : sizeof(struct can_frame);
-      /* Determine the maximum supported frame length. */
-      frameLenMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
-                    CANFD_MAX_DLEN : CAN_MAX_DLEN;
+      /* Initialize the settings as if the message will be CAN classic. */
+      frameLenMax = CAN_MAX_DLEN;
+      frameSizeMax = CAN_MTU;
+      /* Should the message be transmitted as CAN FD? */
+      if ((currentCtx->fd_enabled) && (flags & CANCOMM_FLAG_CANFD_MSG))
+      {
+        /* Update the settings for the mesasge to be CAN FD. */
+        frameLenMax = CANFD_MAX_DLEN;
+        frameSizeMax = CANFD_MTU;
+        /* Configure the bit rate switch when transmitting messages in CAN FD mode. */
+        canTxFrame.flags |= CANFD_BRS;        
+      }
+
       /* Only transmit if all the data actually fits. */
       if (len <= frameLenMax)
       {
@@ -388,17 +398,6 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
         for (uint8_t idx = 0; idx < len; idx++)
         {
           canTxFrame.data[idx] = data[idx];
-        }
-        /* A SocketCAN device can only be in CAN FD mode, when a second bitrate was
-         * specified during its configuration, the so called data bitrate. Therefore it
-         * is safe to assume that all transmissions in CAN FD mode should use this,
-         * typicaly faster, bitrate for the frame's data bytes. Otherwise you don't make
-         * optimal use of the improved network's real-time performance. For this reason,
-         * always request the bit rate switch when transmitting messages in CAN FD mode.
-         */
-        if (currentCtx->fd_enabled == CANCOMM_TRUE)
-        {
-          canTxFrame.flags |= CANFD_BRS;
         }
 
         /* Request transmission of the frame. */
@@ -433,6 +432,10 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
 **            11-bit message identifier, CANCOMM_TRUE of 29-bit.
 ** \param     len Pointer to where the number of CAN message data bytes is stored.
 ** \param     data Pointer to array where the data bytes are stored.
+** \param     flags Pointer to where the bit flags are stored for providing additional
+**            information about the received message:
+**              CANCOMM_FLAG_CANFD_MSG - The message is CAN FD and not CAN classic.
+**              CANCOMM_FLAG_CANERR_MSG - The message is a CAN error frame.
 ** \param     timestamp Pointer to where the timestamp (microseconds) of the message is
 **            stored.
 ** \return    CANCOMM_TRUE if a new message was received and copied. CANCOMM_FALSE 
@@ -440,13 +443,13 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
 **
 ****************************************************************************************/
 uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
-                        uint8_t * data, uint64_t * timestamp)
+                        uint8_t * data, uint8_t * flags, uint64_t * timestamp)
 {
   uint8_t result = CANCOMM_FALSE;
   struct cancomm_ctx * currentCtx;
   struct canfd_frame canRxFrame = { 0 };
   struct timeval tv = { 0 };
-  size_t frameSizeMax;
+  size_t frameSize;
 
   /* Verify parameters. */
   assert((ctx != NULL) && (id != NULL) && (ext != NULL) && (len != NULL) && 
@@ -459,19 +462,19 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
 
-    /* Determine the maximum supported frame size. */
-    frameSizeMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
-                    sizeof(struct canfd_frame) : sizeof(struct can_frame);
-
     /* Only receive if actually connected. */
     if (currentCtx->socket != CANCOMM_INVALID_SOCKET)
     {
-      /* Attempt to get the next CAN event from the queue. */
-      if (read(currentCtx->socket, &canRxFrame, frameSizeMax) == frameSizeMax)
+      /* Attempt to read the next frame from the queue. */
+      frameSize = read(currentCtx->socket, &canRxFrame, CANFD_MTU);
+      /* CAN FD or CAN classic frames are the only valid ones. */
+      if ( (frameSize == CANFD_MTU) || (frameSize == CAN_MTU) )
       {
-        /* Ignore remote frames and error information. */
-        if (!(canRxFrame.can_id & (CAN_RTR_FLAG | CAN_ERR_FLAG)))
+        /* Ignore remote frames. Pretty much no one actually uses these. */
+        if (!(canRxFrame.can_id & CAN_RTR_FLAG))
         {
+          /* Reset the bit flags. */
+          *flags = 0;
           /* Obtain the timestamp of the reception event. */
           *timestamp = 0;
           if (ioctl(currentCtx->socket, SIOCGSTAMP, &tv) == 0)
@@ -482,21 +485,42 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
             *timestamp -= currentCtx->connectTime;
           }
 
-          /* Copy the CAN frame. */
-          if (canRxFrame.can_id & CAN_EFF_FLAG)
+          /* Was it an error frame? */
+          if (canRxFrame.can_id & CAN_ERR_FLAG)
           {
-            *ext = CANCOMM_TRUE;
+            /* Store error frame info. */
+            *flags |= CANCOMM_FLAG_CANERR_MSG;
+            *id = 0;
+            *ext = CANCOMM_FALSE;
+            *len = 0;
           }
+          /* It was a regular data frame. Either CAN FD or CAN classic. */
           else
           {
-            *ext = CANCOMM_FALSE;
+            /* Was it a CAN FD frame? */
+            if (frameSize == CANFD_MTU)
+            {
+              /* Flag the frame as a CAN FD frame for the caller. */
+              *flags |= CANCOMM_FLAG_CANFD_MSG;
+            }
+
+            /* Copy the CAN data frame. */
+            if (canRxFrame.can_id & CAN_EFF_FLAG)
+            {
+              *ext = CANCOMM_TRUE;
+            }
+            else
+            {
+              *ext = CANCOMM_FALSE;
+            }
+            *id = canRxFrame.can_id & ~CAN_EFF_FLAG;
+            *len = canRxFrame.len;
+            for (uint8_t idx = 0; idx < canRxFrame.len; idx++)
+            {
+              data[idx] = canRxFrame.data[idx];
+            }
           }
-          *id = canRxFrame.can_id & ~CAN_EFF_FLAG;
-          *len = canRxFrame.len;
-          for (uint8_t idx = 0; idx < canRxFrame.len; idx++)
-          {
-            data[idx] = canRxFrame.data[idx];
-          }
+
           /* Frame successfully read. Update the result accordingly. */
           result = CANCOMM_TRUE;
         }        
@@ -671,7 +695,7 @@ static uint8_t cancomm_devices_is_can(char const * name)
  
   /* Give the result back to the caller. */
   return result;
-} /*** end of AppIsCanInterface ***/
+} /*** end of cancomm_devices_is_can ***/
 
 
 /************************************************************************************//**
