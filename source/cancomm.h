@@ -59,22 +59,6 @@ typedef void * cancomm_t;
 cancomm_t   cancomm_new(void);
 void        cancomm_free(cancomm_t ctx);
 /* API for CAN communication using a specific CAN device. */
-/* TODO Add flags parameter? One bit would be to enable CAN FD mode, instead of CAN
- *      classic. Might not be needed though, because FD mode should be enabled on
- *      netlink level with the MTU size. You can read this one out to determine if
- *      the CAN socket needs to be in CAN FD mode. Note that this needs to be added
- *      inside cancomm_connect(). Can look at cansend.c for an example.
- *      Wait..I'm not sure though if the MTU size is automatically set by hardware when
- *      it supports CAN FD. If so, then the user can not configure classic vs FD on a 
- *      netlink layer and the flags parameter is absolutely needed!
- *      Nope. The user needs to specify the extra data bitrate and then explicitly set
- *      the "fd on" option to switch from classic to FD. After the the MTU switches to
- *      the higher value (CANFD_MTU). So you don't need this extra parameter and you can
- *      truly rely on the MTU value from netlink to determine if FD mode needs to be
- *      enabled for the socket.
- *      Probably want to add an fd_enabled member to the context to keep track of this.
- */ 
-/* TODO Maybe add fd_enabled member to the context. */
 uint8_t     cancomm_connect(cancomm_t ctx, char const * device);
 void        cancomm_disconnect(cancomm_t ctx);
 /* TODO Add flags parameter. One bit would be for the CAN FD bit rate switch. This is

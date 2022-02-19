@@ -35,6 +35,7 @@
 #include <net/if.h>                         /* network interfaces                      */
 #include <linux/if_arp.h>                   /* ARP definitions                         */
 #include <linux/can.h>                      /* CAN kernel definitions                  */
+#include <linux/can/raw.h>                  /* CAN raw definitions                     */
 #include <linux/sockios.h>                  /* Socket I/O                              */
 #include <sys/ioctl.h>                      /* I/O control operations                  */
 #include <sys/time.h>                       /* System time utilities                   */
@@ -62,6 +63,8 @@ struct cancomm_ctx
    *         connected.
    */
   uint32_t socket;
+  /** \brief Boolean flag to determine if the CAN device is CAN classic or CAN FD. */
+  uint8_t  fd_enabled;
   /** \brief System time at which this module connected to the CAN network. Used to
    *         calculated zero based CAN message timestamps.
    */
@@ -100,6 +103,7 @@ cancomm_t cancomm_new(void)
   {
     /* Initialize the context members. */
     newCtx->socket = CANCOMM_INVALID_SOCKET;
+    newCtx->fd_enabled = CANCOMM_FALSE;
     newCtx->connectTime = 0;
     newCtx->devices_cnt = 0;
     newCtx->devices_list = NULL;
@@ -166,6 +170,7 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
   struct sockaddr_can addr;
   struct ifreq ifr;
   int32_t flags;
+  int32_t deviceMtu;
   struct timeval tv = { 0 };
 
   /* Verify parameters. */
@@ -203,7 +208,7 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
 
     if (result == CANCOMM_TRUE)
     {
-      /* Get open socket descriptor */
+      /* Get open socket descriptor. */
       if ((currentCtx->socket = socket(PF_CAN, (int)SOCK_RAW, CAN_RAW)) < 0)
       {
         result = CANCOMM_FALSE;
@@ -212,12 +217,42 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
 
     if (result == CANCOMM_TRUE)
     {
-      /* Obtain interface index. */
-      if (ioctl(currentCtx->socket, SIOCGIFINDEX, &ifr) < 0)
+      /* Determine if the CAN device is configured for CAN classic or CAN FD mode. Do so
+       * by reading the MTU size of the CAN device. For CAN classic it will be CAN_MTU.
+       * For CAN FD it will be CANFD_MTU.
+       */
+      deviceMtu = CAN_MTU;
+      /* Attempt to read the MTU value from the CAN device. */
+      if (ioctl(currentCtx->socket, SIOCGIFMTU, &ifr) >= 0)
       {
-        close(currentCtx->socket);
-        currentCtx->socket = CANCOMM_INVALID_SOCKET;
-        result = CANCOMM_FALSE;
+        /* Only update the MTU value if it is a supported value. */
+        if ( (ifr.ifr_mtu == CAN_MTU) || (ifr.ifr_mtu == CANFD_MTU) )
+        {
+          deviceMtu = ifr.ifr_mtu;
+        }
+      }
+      /* Use the MTU value to determine if the CAN device is operating in CAN classic or
+       * CAN FD mode. Note that the MTU value of the CAN device changes automatically to
+       * the value of CANFD_MTU, after the data bitrate was configured and the fd mode
+       * was turned on. Example:
+       *   ip link set can0 type can bitrate 500000 dbitrate 4000000 fd on
+       */
+      currentCtx->fd_enabled = (deviceMtu == CANFD_MTU) ? CANCOMM_TRUE : CANCOMM_FALSE;
+      
+      /* Attempt to switch socket into CAN FD mode, if the CAN device is configured for
+       * CAN FD.
+       */
+      if (currentCtx->fd_enabled == CANCOMM_TRUE)
+      {
+        int enable_canfd = 1;
+        if (setsockopt(currentCtx->socket, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, 
+            &enable_canfd, sizeof(enable_canfd)) != 0)
+        {
+          /* Could not switch the socket into CAN FD mode. Fall back to CAN classic
+           * operation.
+           */
+          currentCtx->fd_enabled = CANCOMM_FALSE;
+        }
       }
     }
 
@@ -230,6 +265,17 @@ uint8_t cancomm_connect(cancomm_t ctx, char const * device)
         flags = 0;
       }
       if (fcntl(currentCtx->socket, F_SETFL, flags | O_NONBLOCK) == -1)
+      {
+        close(currentCtx->socket);
+        currentCtx->socket = CANCOMM_INVALID_SOCKET;
+        result = CANCOMM_FALSE;
+      }
+    }
+
+    if (result == CANCOMM_TRUE)
+    {
+      /* Obtain interface index. */
+      if (ioctl(currentCtx->socket, SIOCGIFINDEX, &ifr) < 0)
       {
         close(currentCtx->socket);
         currentCtx->socket = CANCOMM_INVALID_SOCKET;
@@ -545,7 +591,7 @@ char * cancomm_devices_name(cancomm_t ctx, uint8_t idx)
     if (idx < currentCtx->devices_cnt)
     {
       /* Point the result to the CAN device name as the specified index. */
-      result = &currentCtx->devices_list[idx];
+      result = &currentCtx->devices_list[idx * IFNAMSIZ];
     }
   }
 
