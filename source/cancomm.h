@@ -61,27 +61,16 @@ void        cancomm_free(cancomm_t ctx);
 /* API for CAN communication using a specific CAN device. */
 uint8_t     cancomm_connect(cancomm_t ctx, char const * device);
 void        cancomm_disconnect(cancomm_t ctx);
-/* TODO Add flags parameter. One bit would be for the CAN FD bit rate switch. This is
- *      an optional feature of CAN FD. For example, it is perfectly fine to send a 64-bit
- *      FD message as the arbitration speed. It will just occupy the bus longer so the
- *      real-time performance of the network gets worse. But it's up to the application
- *      to decide this.
- *      Nope. I think you can make an assumption here. When "fd on" is enabled in
- *      netlink, that can only be when the user specifically specified a bitrate of the
- *      data part. Hence, they will want to do the bit rate switch. So if fd_enabled is
- *      set in the context, then you can assume the application wants to send at the
- *      higher bit rate, so the BRS bit should be set in the can_fd_frame.flags part.
- */
-/* TODO Do proper length check if len > 8. Could  use fd_enabled member to check if this
- *      is allowed at all. And if so, the length must be 12, 16, 20, 24, 32, 48 or 64.
- */
-/* TODO Should switch can_frame variable to the fd version for FD compatibility. 
- */ 
 uint8_t     cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len, 
                              uint8_t const * data, uint64_t * timestamp);
-/* TODO Should switch can_frame variable to the fd version for FD compatibility. 
- */ 
-/* TODO Maybe add a flags parameter for future support of error frame detection. */
+/* TODO Cannot yet receive classic CAN messages in CAN FD mode. Not sure if this is
+ *      the way it's supposed to be when CAN FD mode is on. candump can receive both
+ *      though..maybe I need to just add two read calls with different sizes? But the
+ *      transmitter will always transmit in FD mode though...Need to investigate.
+ */
+/* TODO Maybe add a flags parameter for future support of error frame detection. Ideally
+ *      also implement the reception of error frames already.
+ */
 uint8_t     cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * len, 
                              uint8_t * data, uint64_t * timestamp);
 /* API for obtaining CAN device names on the system (can0, vcan0, etc.). */

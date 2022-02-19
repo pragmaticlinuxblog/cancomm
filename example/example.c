@@ -80,8 +80,8 @@ int main(int argc, char const * const argv[])
   char *    canDevice;
   uint32_t  canId;
   uint8_t   canExt;
-  uint8_t   canDlc;
-  uint8_t   canData[8];
+  uint8_t   canLen;
+  uint8_t   canData[64];
   uint64_t  canTimestamp;
 
   /* Initialize locals. */
@@ -143,12 +143,12 @@ int main(int argc, char const * const argv[])
     while (!atomic_load(&appExitProgram))
     {
       /* Check for the reception of a CAN message. */
-      if (cancomm_receive(canCommCtx, &canId, &canExt, &canDlc, &canData[0], 
+      if (cancomm_receive(canCommCtx, &canId, &canExt, &canLen, &canData[0], 
                           &canTimestamp) == CANCOMM_TRUE)
       {
         printf("[PING] Received CAN message with ID %Xh.\n", canId);
         /* Send the same message back but with an incremented identifier. */
-        if (cancomm_transmit(canCommCtx, ++canId, canExt, canDlc, canData, 
+        if (cancomm_transmit(canCommCtx, ++canId, canExt, canLen, canData, 
                             &canTimestamp) == CANCOMM_TRUE)
         {
           printf("[PONG] Transmitted CAN message with ID %Xh.\n", canId);

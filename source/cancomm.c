@@ -82,6 +82,7 @@ struct cancomm_ctx
 * Function prototypes
 ****************************************************************************************/
 static uint8_t cancomm_devices_is_can(char const * name);
+static uint8_t cancomm_sanitize_frame_len(uint8_t len);
 
 
 /************************************************************************************//**
@@ -350,14 +351,16 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
 {
   uint8_t result = CANCOMM_FALSE;
   struct cancomm_ctx * currentCtx;
-  struct can_frame canTxFrame = { 0 };
+  struct canfd_frame canTxFrame = { 0 };
   struct timeval tv = { 0 };
+  uint8_t frameLenMax;
+  size_t frameSizeMax;
 
   /* Verify parameters. */
-  assert((ctx != NULL) && (len <= CAN_MAX_DLEN) && (data != NULL));
+  assert((ctx != NULL) && (len <= CANFD_MAX_DLEN) && (data != NULL));
 
   /* Only continue with a valid parameters. */
-  if ((ctx != NULL) && (len <= CAN_MAX_DLEN) && (data != NULL))
+  if ((ctx != NULL) && (len <= CANFD_MAX_DLEN) && (data != NULL))
   {
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
@@ -365,33 +368,54 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
     /* Only transmit if actually connected. */
     if (currentCtx->socket != CANCOMM_INVALID_SOCKET)
     {
-      /* Construct the transmit frame. */
-      canTxFrame.can_id = id;
-      if (ext == CANCOMM_TRUE)
+      /* Determine the maximum supported frame size. */
+      frameSizeMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
+                      sizeof(struct canfd_frame) : sizeof(struct can_frame);
+      /* Determine the maximum supported frame length. */
+      frameLenMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
+                    CANFD_MAX_DLEN : CAN_MAX_DLEN;
+      /* Only transmit if all the data actually fits. */
+      if (len <= frameLenMax)
       {
-        canTxFrame.can_id |= CAN_EFF_FLAG;
-      }
-      canTxFrame.can_dlc = len;
-      for (uint8_t idx = 0; idx < len; idx++)
-      {
-        canTxFrame.data[idx] = data[idx];
-      }
-
-      /* Request transmission of the frame. */
-      if (write(currentCtx->socket, &canTxFrame, sizeof(struct can_frame)) == 
-          (ssize_t)sizeof(struct can_frame))
-      {
-        /* Get the timestamp of the transmit event. */
-        *timestamp = 0;
-        if (gettimeofday(&tv, NULL) == 0)
+        /* Construct the transmit frame. */
+        canTxFrame.can_id = id;
+        if (ext == CANCOMM_TRUE)
         {
-          /* Convert the timestamp to microseconds. */
-          *timestamp = ((int64_t)tv.tv_sec * 1000 * 1000ULL) + ((int64_t)tv.tv_usec);
-          /* Make the timestamp relative to the connection time. */
-          *timestamp -= currentCtx->connectTime;
+          canTxFrame.can_id |= CAN_EFF_FLAG;
         }
-        /* Successfully submitted for transmission. Update the result accordingly. */
-        result = CANCOMM_TRUE;
+        /* Sanitize the frame length before storing it. */
+        canTxFrame.len = cancomm_sanitize_frame_len(len);
+        for (uint8_t idx = 0; idx < len; idx++)
+        {
+          canTxFrame.data[idx] = data[idx];
+        }
+        /* A SocketCAN device can only be in CAN FD mode, when a second bitrate was
+         * specified during its configuration, the so called data bitrate. Therefore it
+         * is safe to assume that all transmissions in CAN FD mode should use this,
+         * typicaly faster, bitrate for the frame's data bytes. Otherwise you don't make
+         * optimal use of the improved network's real-time performance. For this reason,
+         * always request the bit rate switch when transmitting messages in CAN FD mode.
+         */
+        if (currentCtx->fd_enabled == CANCOMM_TRUE)
+        {
+          canTxFrame.flags |= CANFD_BRS;
+        }
+
+        /* Request transmission of the frame. */
+        if (write(currentCtx->socket, &canTxFrame, frameSizeMax) == frameSizeMax)
+        {
+          /* Get the timestamp of the transmit event. */
+          *timestamp = 0;
+          if (gettimeofday(&tv, NULL) == 0)
+          {
+            /* Convert the timestamp to microseconds. */
+            *timestamp = ((int64_t)tv.tv_sec * 1000 * 1000ULL) + ((int64_t)tv.tv_usec);
+            /* Make the timestamp relative to the connection time. */
+            *timestamp -= currentCtx->connectTime;
+          }
+          /* Successfully submitted for transmission. Update the result accordingly. */
+          result = CANCOMM_TRUE;
+        }
       }
     }
   }
@@ -420,8 +444,9 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
 {
   uint8_t result = CANCOMM_FALSE;
   struct cancomm_ctx * currentCtx;
-  struct can_frame canRxFrame = { 0 };
+  struct canfd_frame canRxFrame = { 0 };
   struct timeval tv = { 0 };
+  size_t frameSizeMax;
 
   /* Verify parameters. */
   assert((ctx != NULL) && (id != NULL) && (ext != NULL) && (len != NULL) && 
@@ -434,12 +459,15 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
     /* Cast the opaque pointer to its non-opaque counter part. */
     currentCtx = (struct cancomm_ctx *)ctx;
 
+    /* Determine the maximum supported frame size. */
+    frameSizeMax = (currentCtx->fd_enabled == CANCOMM_TRUE)  ? 
+                    sizeof(struct canfd_frame) : sizeof(struct can_frame);
+
     /* Only receive if actually connected. */
     if (currentCtx->socket != CANCOMM_INVALID_SOCKET)
     {
       /* Attempt to get the next CAN event from the queue. */
-      if (read(currentCtx->socket, &canRxFrame, sizeof(struct can_frame)) == 
-          (ssize_t)sizeof(struct can_frame))
+      if (read(currentCtx->socket, &canRxFrame, frameSizeMax) == frameSizeMax)
       {
         /* Ignore remote frames and error information. */
         if (!(canRxFrame.can_id & (CAN_RTR_FLAG | CAN_ERR_FLAG)))
@@ -464,8 +492,8 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
             *ext = CANCOMM_FALSE;
           }
           *id = canRxFrame.can_id & ~CAN_EFF_FLAG;
-          *len = canRxFrame.can_dlc;
-          for (uint8_t idx = 0; idx < canRxFrame.can_dlc; idx++)
+          *len = canRxFrame.len;
+          for (uint8_t idx = 0; idx < canRxFrame.len; idx++)
           {
             data[idx] = canRxFrame.data[idx];
           }
@@ -644,6 +672,49 @@ static uint8_t cancomm_devices_is_can(char const * name)
   /* Give the result back to the caller. */
   return result;
 } /*** end of AppIsCanInterface ***/
+
+
+/************************************************************************************//**
+** \brief     Helper function to sanitize the CAN frame length, specifically for CAN FD.
+**            On CAN FD, the frame lengths can be: 0..8, 12, 16, 20, 24, 32, 48, 64.
+**            This means that if a frame length of 14 is specified, it should be rounded
+**            up to the next supported frame length value, 16 in this case.
+** \param     len Unsanitized frame length. 0..64.
+** \return    Sanitized frame length in the range 0..8, 12, 16, 20, 24, 32, 48, 64.
+**
+****************************************************************************************/
+static uint8_t cancomm_sanitize_frame_len(uint8_t len)
+{
+  uint8_t result;
+  uint8_t frame_len;
+  uint8_t frame_dlc;
+  static const uint8_t len2dlc[] = 
+  {  0,  1,  2,  3,  4,  5,  6,  7,  8,    /*  0 -  8 */
+     9,  9,  9,  9,                        /*  9 - 12 */
+    10, 10, 10, 10,                        /* 13 - 16 */
+    11, 11, 11, 11,                        /* 17 - 20 */
+    12, 12, 12, 12,                        /* 21 - 24 */
+    13, 13, 13, 13, 13, 13, 13, 13,        /* 25 - 32 */
+    14, 14, 14, 14, 14, 14, 14, 14,        /* 33 - 40 */
+    14, 14, 14, 14, 14, 14, 14, 14,        /* 41 - 48 */
+    15, 15, 15, 15, 15, 15, 15, 15,        /* 49 - 56 */
+    15, 15, 15, 15, 15, 15, 15, 15         /* 57 - 64 */
+  };
+  static const uint8_t dlc2len[] = 
+  {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64
+  };                                    
+
+  /* Make sure the specified len parameter is valid. If not, correct it. */
+  frame_len = (len > CANFD_MAX_DLEN) ? CANFD_MAX_DLEN : len;
+  /* Convert the lenght value to the CAN FD dlc value (0..15). */
+  frame_dlc = len2dlc[frame_len];
+  /* Convert the CAN FD dlc value to its representive frame length value. */
+  result = dlc2len[frame_dlc];
+
+  /* Give the result back to the caller. */
+  return result;
+} /*** end of cancomm_sanitize_frame_len ***/
 
 
 /*********************************** end of cancomm.c **********************************/
