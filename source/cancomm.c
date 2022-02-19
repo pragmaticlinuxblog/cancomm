@@ -155,9 +155,13 @@ void cancomm_free(cancomm_t ctx)
 
 
 /************************************************************************************//**
-** \brief     Connects to the specified SocketCAN device. Note that you can run command
-**            "ip addr" in the terminal to determine the SocketCAN device name known to
-**            your Linux system.
+** \brief     Connects to the specified SocketCAN device. Note that you can use the
+**            functions cancomm_devices_buildlist() and cancomm_devices_name() to
+**            determine the names of the SocketCAN devices known to the system. 
+**            Alternatively, you can run command "ip addr" in the terminal to find out
+**            about the SocketCAN devices know to the system.
+**            This function automatically figures out if the SocketCAN device supports
+**            CAN FD, in addition to CAN classic.
 ** \param     ctx CAN communication context.
 ** \param     device Null terminated string with the SocketCAN device name, e.g. "can0".
 ** \return    CANCOMM_TRUE if successfully connected to the SocketCAN device.
@@ -342,7 +346,8 @@ void cancomm_disconnect(cancomm_t ctx)
 ** \param     data Pointer to array with data bytes.
 ** \param     flags Bit flags for providing additional information about how to transmit
 **            the message:
-**              CANCOMM_FLAG_CANFD_MSG - The message is CAN FD and not CAN classic.
+**              CANCOMM_FLAG_CANFD_MSG - The message is CAN FD and not CAN classic. 
+**                                       Ignored for non CAN FD SocketCAN devices.
 ** \param     timestamp Pointer to where the timestamp (microseconds) of the message is
 **            stored.
 ** \return    CANCOMM_TRUE if successfully submitted the message for transmission.

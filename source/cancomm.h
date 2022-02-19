@@ -47,7 +47,7 @@ extern "C" {
 /** \brief Bit flag to indicate that the message is a CAN FD message. */
 #define CANCOMM_FLAG_CANFD_MSG         (0x01)
 
-/** \brief Bit flag to indicate that the message is a CAN error frame/ */
+/** \brief Bit flag to indicate that the message is a CAN error frame. */
 #define CANCOMM_FLAG_CANERR_MSG        (0x80)
 
 
