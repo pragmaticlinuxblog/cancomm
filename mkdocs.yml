@@ -1,0 +1,32 @@
+site_name: LibCanComm User Manual
+site_description: User Manual for LibCanComm, the library for convenient access to CAN communication, based on the SocketCAN kernel functionality.
+repo_url: https://github.com/pragmaticlinuxblog/libcancomm
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  palette: 
+    - scheme: default
+      primary: blue
+      accent: red
+      toggle:
+        icon: material/toggle-switch-off-outline 
+        name: Switch to dark mode
+    - scheme: slate 
+      primary: blue
+      accent: red
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+plugins:
+  - search
+  - mike:
+      version_selector: true
+      css_dir: css
+      javascript_dir: js
+      canonical_version: null
+extra:
+  version:
+    provider: mike
+nav:
+  - Home: 'index.md'
