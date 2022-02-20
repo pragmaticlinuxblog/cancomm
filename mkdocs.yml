@@ -1,10 +1,18 @@
 site_name: LibCanComm User Manual
 site_description: User Manual for LibCanComm, the library for convenient access to CAN communication, based on the SocketCAN kernel functionality.
 repo_url: https://github.com/pragmaticlinuxblog/libcancomm
+nav:
+  - Getting started: 'index.md'
+  - API reference: 'api.md'
+  - Example: 'example.md'
 theme:
   name: material
   icon:
     repo: fontawesome/brands/github
+  features:
+    - toc.integrate
+    - navigation.top
+    - navigation.tabs
   palette: 
     - scheme: default
       primary: blue
@@ -28,5 +36,16 @@ plugins:
 extra:
   version:
     provider: mike
-nav:
-  - Home: 'index.md'
+  generator: false
+  social:
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/pragmaticlinux
+      name: PragmaticLinux on Twitter
+    - icon: fontawesome/brands/pinterest
+      link: https://www.pinterest.com/pragmaticlinux
+      name: PragmaticLinux on Pinterest
+    - icon: fontawesome/brands/github
+      link: https://github.com/pragmaticlinuxblog
+      name: PragmaticLinux on GitHub
+copyright: Copyright &copy; 2022 by PragmaticLinux
+    
