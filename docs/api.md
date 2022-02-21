@@ -5,6 +5,10 @@ Make this a table..
 * [cancomm_create()](#cancomm_create)
 * [cancomm_free()](#cancomm_free)
 
+## Types
+
+
+
 ## Macros
 
 + Add detailed description of the macros, without placing them in a subsection.
