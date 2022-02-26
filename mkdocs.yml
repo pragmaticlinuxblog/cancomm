@@ -1,6 +1,7 @@
 site_name: LibCanComm User Manual
 site_description: User Manual for LibCanComm, the library for convenient access to CAN communication, based on the SocketCAN kernel functionality.
 repo_url: https://github.com/pragmaticlinuxblog/libcancomm
+edit_uri: edit/main/docs/
 nav:
   - Getting started: 'index.md'
   - API reference: 'api.md'
