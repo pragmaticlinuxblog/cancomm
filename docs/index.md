@@ -24,7 +24,7 @@ To download, build and install **LibCanComm** onto your Linux system, you just n
 
 To obtain the code, you can either download the latest stable release from the GitHub repository:
 
-* https://github.com/pragmaticlinuxblog/libcancomm/releases
+* [https://github.com/pragmaticlinuxblog/libcancomm/releases](https://github.com/pragmaticlinuxblog/libcancomm/releases)
 
 Or directly clone the latest development version:
 
@@ -68,7 +68,7 @@ Before your application can communicate with other nodes on the CAN bus, you nee
 
 ## Code sample
 
-This section presents a few brief code samples to give you an idea of how you use **LibCanComm** in your own application. 
+This section presents a few brief code samples to give you an idea of how you use **LibCanComm** in your own application. For more information refer to the [example application](example.md) and the [API reference](api.md).
 
 ```c linenums="1" title="Listing all available SocketCAN devices:"
 #include <cancomm.h>

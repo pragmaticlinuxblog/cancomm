@@ -341,7 +341,8 @@ void cancomm_disconnect(cancomm_t ctx)
 ** \brief     Submits a CAN message for transmission.
 ** \param     ctx CAN communication context.
 ** \param     id CAN message identifier.
-** \param     ext CANCOMM_FALSE for a 11-bit message identifier, CANCOMM_TRUE of 29-bit.
+** \param     ext CANCOMM_FALSE for an 11-bit message identifier, CANCOMM_TRUE for
+**            29-bit.
 ** \param     len Number of CAN message data bytes.
 ** \param     data Pointer to array with data bytes.
 ** \param     flags Bit flags for providing additional information about how to transmit
@@ -430,11 +431,12 @@ uint8_t cancomm_transmit(cancomm_t ctx, uint32_t id, uint8_t ext, uint8_t len,
 
 
 /************************************************************************************//**
-** \brief     Retrieves a possibly received CAN message.
+** \brief     Reads a possibly received CAN message or CAN eror frame in a non-blocking
+**            manner.
 ** \param     ctx CAN communication context.
 ** \param     id Pointer to where the CAN message identifier is stored.
-** \param     ext Pointer to where the CAN identifer type is stored. CANCOMM_FALSE for a
-**            11-bit message identifier, CANCOMM_TRUE of 29-bit.
+** \param     ext Pointer to where the CAN identifier type is stored. CANCOMM_FALSE for
+**            an 11-bit message identifier, CANCOMM_TRUE for 29-bit.
 ** \param     len Pointer to where the number of CAN message data bytes is stored.
 ** \param     data Pointer to array where the data bytes are stored.
 ** \param     flags Pointer to where the bit flags are stored for providing additional
@@ -541,8 +543,8 @@ uint8_t cancomm_receive(cancomm_t ctx, uint32_t * id, uint8_t * ext, uint8_t * l
 /************************************************************************************//**
 ** \brief     Builds a list with all the CAN device names currently present on the
 **            system. Basically an internal array with strings such as can0, vcan0, etc.
-**            Afterwards, you can call the cancomm_devices_get_xxx functions to retrieve
-**            information about a specific device, using its array index.
+**            Afterwards, you can call cancomm_devices_name() to retrieve the name of a
+**            specific SocketCAN device, using its array index.
 ** \param     ctx CAN communication context.
 ** \return    The total number of CAN devices currently present on the system, or 0 if
 **            none were found or in case of an error.
@@ -621,12 +623,12 @@ uint8_t cancomm_devices_buildlist(cancomm_t ctx)
 
 
 /************************************************************************************//**
-** \brief     Obtains the CAN device name at the specified index of the internal array
-**            with CAN devices, created by function cancomm_devices_build_list(). You
+** \brief     Obtains the CAN device name at the specified index of the internal list
+**            with CAN devices, created by function cancomm_devices_buildlist(). You
 **            could use this CAN device name when calling cancomm_connect().
-** \attention Call cancomm_devices_build_list() prior to calling this function.
+** \attention Call cancomm_devices_buildlist() prior to calling this function.
 ** \param     ctx CAN communication context.
-** \param     idx Zero based index inthe to device list.
+** \param     idx Zero based index into the device list.
 ** \return    The CAN device name at the specified index, or NULL in case of an error.
 **
 ****************************************************************************************/
