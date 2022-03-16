@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.9)
 
 # Specify the project info.
-project(example VERSION 1.0.0 DESCRIPTION "SocketCAN communication library example")
+project(example LANGUAGES C VERSION 1.0.0 DESCRIPTION "SocketCAN communication library example")
 
 # Finds the pkg-config executable adds the pkg_check_modules() function, among others.
 find_package(PkgConfig REQUIRED)

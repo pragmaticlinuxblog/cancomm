@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.9)
 
 # Specify the project info.
-project(cancomm VERSION 1.0.0 DESCRIPTION "SocketCAN communication library")
+project(cancomm LANGUAGES C VERSION 1.0.0 DESCRIPTION "SocketCAN communication library")
 
 # For access to standard installation directory variables (CMAKE_INSTALL_xDIR).
 include(GNUInstallDirs)
@@ -39,3 +39,4 @@ install(TARGETS ${PROJECT_NAME}
 install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig
 )
+
