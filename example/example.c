@@ -140,7 +140,7 @@ int main(int argc, char const * const argv[])
   /* Enter the program loop until an exit (CTRL+C) is requested. */
   if (result == EXIT_SUCCESS)
   {
-    printf("[INFO] Entering message reception loop. Press CTRL+C to exit.\n", canDevice);
+    printf("[INFO] Entering message reception loop. Press CTRL+C to exit.\n");
     while (!atomic_load(&appExitProgram))
     {
       /* Check for the reception of a CAN message. */
