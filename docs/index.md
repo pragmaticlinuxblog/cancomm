@@ -24,11 +24,11 @@ To download, build and install **LibCanComm** onto your Linux system, you just n
 
 To obtain the code, you can either download the latest stable release from the GitHub repository:
 
-* [https://github.com/pragmaticlinuxblog/libcancomm/releases](https://github.com/pragmaticlinuxblog/libcancomm/releases)
+* [https://github.com/pragmaticlinuxblog/cancomm/releases](https://github.com/pragmaticlinuxblog/cancomm/releases)
 
 Or directly clone the latest development version:
 
-* `git clone https://github.com/pragmaticlinuxblog/libcancomm.git ~/LibCanComm`
+* `git clone https://github.com/pragmaticlinuxblog/cancomm.git ~/LibCanComm`
 
 It's recommended to stick with a stable release. The following sections assume that you either cloned or extracted the code to directory `~/LibCanComm`.
 
