@@ -37,6 +37,6 @@ install(TARGETS ${PROJECT_NAME}
 
 # Set pkg-config file to install.
 install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
 
