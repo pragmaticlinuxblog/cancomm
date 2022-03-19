@@ -13,13 +13,13 @@ Note that LibCanComm does not provide functionality related to configuring and b
 
 ## Getting started
 
-To get started with *LibCanComm*, it is recommended to download the latest stable release from the [releases](https://github.com/pragmaticlinuxblog/cancomm/releases) page. Next, read through the getting started documentation in the [user manual](https://pragmaticlinuxblog.github.io/cancomm).
+To get started with *LibCanComm*, it is recommended to download the latest stable release from the [releases](https://github.com/pragmaticlinuxblog/cancomm/releases) page. Next, read through the getting started documentation in the [user manual](https://pragmaticlinuxblog.github.io/cancomm/latest/).
 
 ## User manual
 
 The online user manual is located at the following location:
 
-- [https://pragmaticlinuxblog.github.io/cancomm](https://pragmaticlinuxblog.github.io/cancomm)
+- [https://pragmaticlinuxblog.github.io/cancomm/latest/](https://pragmaticlinuxblog.github.io/cancomm/latest/)
 
 ## Development
 
